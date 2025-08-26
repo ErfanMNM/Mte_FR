@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+:root {
+  --bg: #f6f8fc;
+  --panel: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --danger: #ef4444;
+  --border: #e5e7eb;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app { max-width: 1200px; margin: 0 auto; padding: 16px 0; }
+.app__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.app__header h2 { margin: 0; font-size: 18px; letter-spacing: 0.2px; }
+
+.header__actions { display: flex; gap: 8px; align-items: center; }
+
+
+.board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+.column { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-height: 60vh; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.08); }
+.column__header { display: flex; align-items: center; justify-content: space-between; }
+.column__header h3 { margin: 0; font-size: 14px; font-weight: 600; color: #0f172a; padding: 6px 10px; border-radius: 8px; background: #f3f4f6; }
+.badge { font-size: 12px; color: var(--muted); background: #f3f4f6; border: 1px solid var(--border); padding: 2px 6px; border-radius: 999px; }
+
+.column__list { display: flex; flex-direction: column; gap: 8px; }
+.column__add { display: flex; gap: 6px; margin-top: auto; }
+
+.card { background: #ffffff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+.card__body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.card__title { font-weight: 600; letter-spacing: .2px; }
+.card__desc { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.card__actions { display: flex; gap: 6px; }
+
+.btn { background: var(--primary); color: white; border: none; border-radius: 8px; padding: 6px 10px; font-weight: 600; cursor: pointer; font-size: 13px; }
+.btn:hover { filter: brightness(1.05); }
+.btn:active { transform: translateY(1px); }
+.btn--ghost { background: #ffffff; border: 1px solid var(--border); color: var(--text); }
+.btn--danger { background: var(--danger); }
+
+.input, .textarea { width: 100%; background: #ffffff; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.textarea { resize: vertical; }
+
+@media (max-width: 900px) {
+  .board { grid-template-columns: 1fr; }
+}
+
+/* Admin Layout */
+.layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.sidebar { background: #ffffff; border-right: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.sidebar__logo { font-weight: 700; letter-spacing: .3px; margin-bottom: 8px; }
+.sidebar__nav { display: flex; flex-direction: column; gap: 6px; }
+.nav__item { text-decoration: none; color: #334155; padding: 8px 10px; border-radius: 8px; }
+.nav__item:hover { background: #f3f4f6; }
+.nav__item.active { background: #eaf2ff; color: #1d4ed8; font-weight: 600; }
+
+.main { display: grid; grid-template-rows: auto 1fr auto; min-height: 100vh; }
+.topbar { background: #ffffff; border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; position: sticky; top: 0; z-index: 10; }
+.topbar__search { max-width: 420px; }
+.content { padding: 16px; }
+.footer { border-top: 1px solid var(--border); background: #ffffff; padding: 10px 16px; color: var(--muted); }
+
+/* Page helpers */
+.page__title { margin: 0 0 12px 0; font-size: 20px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+.stat { background: #ffffff; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.stat__title { color: var(--muted); font-size: 12px; }
+.stat__value { font-weight: 700; font-size: 24px; }
+.stat__hint { color: #059669; font-size: 12px; }
