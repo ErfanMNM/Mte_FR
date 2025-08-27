@@ -14,10 +14,9 @@
 - [x] Dashboard: 3–4 StatCard + Recent Activity
 
 ## Phase 2 – Tính năng cốt lõi
-- [ ] (ĐÃ LOẠI BỎ) Boards: Không sử dụng nữa – đã gỡ khỏi sidebar và route
-- [ ] Tasks: Bảng (DataTable) với lọc, sắp xếp, phân trang
-- [ ] Drawer chi tiết Task: xem/sửa tiêu đề, mô tả, assignee, priority, due date, tags
-- [ ] Toast/Confirm Dialog cho xoá/undo, thông báo hành động
+- [] Tasks: Bảng (DataTable) với lọc, sắp xếp, phân trang
+- [] Drawer chi tiết Task: xem/sửa tiêu đề, mô tả, assignee, priority, due date, tags
+- [] Toast/Confirm Dialog cho xoá/undo, thông báo hành động
 
 ## Phase 3 – Người dùng & Cài đặt
 - [ ] Users: Danh sách + form tạo/sửa (mock data)
