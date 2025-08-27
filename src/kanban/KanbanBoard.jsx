@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 
-const STORAGE_KEY = 'kanban-board-v1'
+const DEFAULT_STORAGE_KEY = 'kanban-board-v1'
 
 const defaultBoard = () => ([
   { id: 'todo', title: 'Todo', color: '#f1f5f9', tasks: [
@@ -10,10 +10,10 @@ const defaultBoard = () => ([
   { id: 'done', title: 'Done', color: '#ecfdf5', tasks: [] },
 ])
 
-function useLocalBoard() {
+function useLocalBoard(storageKey) {
   const [board, setBoard] = useState(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      const raw = localStorage.getItem(storageKey)
       return raw ? JSON.parse(raw) : defaultBoard()
     } catch {
       return defaultBoard()
@@ -22,15 +22,15 @@ function useLocalBoard() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(board))
+      localStorage.setItem(storageKey, JSON.stringify(board))
     } catch {}
-  }, [board])
+  }, [board, storageKey])
 
   return [board, setBoard]
 }
 
-export default function KanbanBoard() {
-  const [board, setBoard] = useLocalBoard()
+export default function KanbanBoard({ storageKey = DEFAULT_STORAGE_KEY }) {
+  const [board, setBoard] = useLocalBoard(storageKey)
   const [filter, setFilter] = useState('')
 
   const filteredBoard = useMemo(() => {
@@ -115,6 +115,7 @@ export default function KanbanBoard() {
 
 function Column({ column, onAdd, onDropTask, onUpdateTask, onDeleteTask }) {
   const [newTitle, setNewTitle] = useState('')
+  const [dragOver, setDragOver] = useState(false)
 
   const onDrop = (e) => {
     e.preventDefault()
@@ -124,11 +125,12 @@ function Column({ column, onAdd, onDropTask, onUpdateTask, onDeleteTask }) {
       const { taskId, fromColumnId } = JSON.parse(data)
       onDropTask(taskId, fromColumnId)
     } catch {}
+    setDragOver(false)
   }
 
-  const onDragOver = (e) => {
-    e.preventDefault()
-  }
+  const onDragOver = (e) => { e.preventDefault() }
+  const onDragEnter = () => setDragOver(true)
+  const onDragLeave = () => setDragOver(false)
 
   const handleAdd = () => {
     onAdd(newTitle)
@@ -136,7 +138,7 @@ function Column({ column, onAdd, onDropTask, onUpdateTask, onDeleteTask }) {
   }
 
   return (
-    <section className="column" style={{ backgroundColor: column.color }} onDrop={onDrop} onDragOver={onDragOver}>
+    <section className={`column ${dragOver ? 'drag-over' : ''}`} style={{ backgroundColor: column.color }} onDrop={onDrop} onDragOver={onDragOver} onDragEnter={onDragEnter} onDragLeave={onDragLeave}>
       <header className="column__header">
         <h3>{column.title}</h3>
         <span className="badge">{column.tasks.length}</span>
@@ -166,13 +168,16 @@ function TaskCard({ task, columnId, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
   const [desc, setDesc] = useState(task.description || '')
+  const [dragging, setDragging] = useState(false)
 
   useEffect(() => { setTitle(task.title); setDesc(task.description || '') }, [task.id])
 
   const onDragStart = (e) => {
     e.dataTransfer.setData('application/json', JSON.stringify({ taskId: task.id, fromColumnId: columnId }))
     e.dataTransfer.effectAllowed = 'move'
+    setDragging(true)
   }
+  const onDragEnd = () => setDragging(false)
 
   const save = () => {
     onUpdate(task.id, { title: title.trim() || 'Không tên', description: desc })
@@ -180,7 +185,7 @@ function TaskCard({ task, columnId, onUpdate, onDelete }) {
   }
 
   return (
-    <article className="card" draggable onDragStart={onDragStart}>
+    <article className={`card ${dragging ? 'dragging' : ''}`} draggable onDragStart={onDragStart} onDragEnd={onDragEnd}>
       {editing ? (
         <div className="card__body">
           <input className="input" value={title} onChange={e => setTitle(e.target.value)} />
@@ -203,4 +208,3 @@ function TaskCard({ task, columnId, onUpdate, onDelete }) {
     </article>
   )
 }
-

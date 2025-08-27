@@ -1,25 +1,62 @@
-import React from 'react'
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
+import React, { useMemo } from 'react'
+import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import KanbanBoard from './kanban/KanbanBoard.jsx'
+import { AuthProvider, useAuth } from './auth/AuthProvider.jsx'
+import RequireAuth from './auth/RequireAuth.jsx'
+import LoginPage from './pages/LoginPage.jsx'
+import UsersPage from './pages/UsersPage.jsx'
+import ProjectsList from './pages/ProjectsList.jsx'
+import ProjectDetail from './pages/ProjectDetail.jsx'
 
 function Layout({ children }) {
+  const navigate = useNavigate()
+  const { logout } = useAuth()
+  function AvatarTopbar() {
+    const { user, profile } = useAuth()
+    const initials = useMemo(() => {
+      const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() || user?.username || user?.email || 'U'
+      const parts = name.split(' ').filter(Boolean)
+      return parts.slice(0,2).map(p => p[0]?.toUpperCase()).join('') || 'U'
+    }, [profile, user])
+    if (profile?.avatar_url) {
+      return <img className="avatar" src={profile.avatar_url} alt={initials} title={user?.email || ''} style={{ width: 32, height: 32, borderRadius: 999, objectFit: 'cover' }} />
+    }
+    return <div className="avatar" title={user?.email || ''} style={{ width: 32, height: 32 }}>{initials}</div>
+  }
   return (
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar__logo">Kanban Admin</div>
         <nav className="sidebar__nav">
-          <NavLink to="/" end className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>Dashboard</NavLink>
-          <NavLink to="/boards" className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>Boards</NavLink>
-          <NavLink to="/tasks" className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>Tasks</NavLink>
-          <NavLink to="/users" className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>Users</NavLink>
-          <NavLink to="/settings" className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>Settings</NavLink>
+          <NavLink to="/" end className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>
+            <span className="nav__icon">🏠</span>
+            <span>Dashboard</span>
+          </NavLink>
+          <NavLink to="/projects" className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>
+            <span className="nav__icon">📁</span>
+            <span>Projects</span>
+          </NavLink>
+          <NavLink to="/tasks" className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>
+            <span className="nav__icon">✅</span>
+            <span>Tasks</span>
+          </NavLink>
+          <NavLink to="/users" className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>
+            <span className="nav__icon">👥</span>
+            <span>Users</span>
+          </NavLink>
+          <NavLink to="/settings" className={({isActive}) => isActive ? 'nav__item active' : 'nav__item'}>
+            <span className="nav__icon">⚙️</span>
+            <span>Settings</span>
+          </NavLink>
         </nav>
       </aside>
       <div className="main">
         <header className="topbar">
           <input className="input topbar__search" placeholder="Tìm kiếm nhanh..." />
-          <div className="topbar__right">
+          <div className="topbar__right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span className="badge">v0.1.0</span>
+            <AvatarTopbar />
+            <button className="btn btn--ghost" onClick={() => { logout(); navigate('/login', { replace: true }) }} title="Đăng xuất">Đăng xuất</button>
           </div>
         </header>
         <div className="content">
@@ -61,14 +98,7 @@ function Dashboard() {
   )
 }
 
-function BoardsPage() {
-  return (
-    <div className="page">
-      <h1 className="page__title">Boards</h1>
-      <KanbanBoard />
-    </div>
-  )
-}
+// Boards page removed per requirement
 
 const Placeholder = ({ title }) => (
   <div className="page">
@@ -80,15 +110,28 @@ const Placeholder = ({ title }) => (
 export default function App() {
   return (
     <BrowserRouter>
-      <Layout>
+      <AuthProvider>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/boards" element={<BoardsPage />} />
-          <Route path="/tasks" element={<Placeholder title="Tasks" />} />
-          <Route path="/users" element={<Placeholder title="Users" />} />
-          <Route path="/settings" element={<Placeholder title="Settings" />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/*"
+            element={
+              <RequireAuth>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/projects" element={<ProjectsList />} />
+                    <Route path="/projects/:id" element={<ProjectDetail />} />
+                    <Route path="/tasks" element={<Placeholder title="Tasks" />} />
+                    <Route path="/users" element={<UsersPage />} />
+                    <Route path="/settings" element={<Placeholder title="Settings" />} />
+                  </Routes>
+                </Layout>
+              </RequireAuth>
+            }
+          />
         </Routes>
-      </Layout>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
