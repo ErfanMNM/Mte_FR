@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import KanbanBoard from '../kanban/KanbanBoard.jsx'
+import ProjectFlow from '../flow/ProjectFlow.jsx'
 import { getProject, projectBoardKey, updateProject, removeProject } from '../projects/store.js'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { usersApi } from '../api/client.js'
@@ -217,7 +218,7 @@ export default function ProjectDetail() {
       )}
 
       {tab === 'flow' && (
-        <ProjectProcessCard proj={proj} setProj={setProj} stages={STAGES} userCatalog={userCatalog} />
+        <ProjectFlow project={proj} setProject={setProj} users={userCatalog} />
       )}
 
       {rightPanel && (

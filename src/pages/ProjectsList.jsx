@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { addProject, getProjects } from '../projects/store.js'
+import { addProject, getProjectsWithMigration } from '../projects/store.js'
 import { usersApi } from '../api/client.js'
 
 function ParticipantsPicker({ value = [], onChange, catalog = [] }) {
@@ -53,7 +53,7 @@ function ParticipantsPicker({ value = [], onChange, catalog = [] }) {
 }
 
 export default function ProjectsList() {
-  const [projects, setProjects] = useState(getProjects())
+  const [projects, setProjects] = useState(getProjectsWithMigration())
   const [q, setQ] = useState('')
   const [form, setForm] = useState({ name: '', description: '', participants: [] })
   const [userCatalog, setUserCatalog] = useState([])
@@ -114,7 +114,7 @@ export default function ProjectsList() {
     e.preventDefault()
     const participantIds = Array.from(new Set(form.participants))
     const proj = addProject({ name: form.name, description: form.description, participants: participantIds })
-    setProjects(getProjects())
+    setProjects(getProjectsWithMigration())
     setForm({ name: '', description: '', participants: '' })
     setShowAdd(false)
     navigate(`/projects/${proj.id}`)
@@ -187,7 +187,24 @@ export default function ProjectsList() {
                         </div>
                       </td>
                       <td data-label="⏱ Quy trình">
-                        <span className="badge">{['Thông tin','Khảo sát','Thiết kế','Demo','Thi công','Nghiệm thu','Hỗ trợ'][Math.min(Math.max(0, p.stageIndex ?? 0), 6)] || '—'}</span>
+                        {Array.isArray(p.pipeline) ? (
+                          (() => {
+                            const flattenLeaves = (nodes) => nodes.flatMap(n => n.children?.length ? flattenLeaves(n.children) : [n])
+                            const leaves = flattenLeaves(p.pipeline)
+                            const current = leaves.find(s => s.status === 'in_progress') || leaves.find(s => s.status !== 'done' && s.status !== 'skipped') || leaves[0]
+                            const done = leaves.filter(s => s.status === 'done').length
+                            const skipped = leaves.filter(s => s.status === 'skipped').length
+                            const total = leaves.length - skipped
+                            return (
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <span className="badge">{current?.name || '—'}</span>
+                                <span className="badge">{done}/{Math.max(1,total)} Hoàn thành</span>
+                              </div>
+                            )
+                          })()
+                        ) : (
+                          <span className="badge">—</span>
+                        )}
                       </td>
                       <td data-label="Hành động" style={{ textAlign: 'right' }}>
                         <Link className="btn btn--ghost" to={`/projects/${p.id}`}>🔎 Mở</Link>

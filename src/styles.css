@@ -78,6 +78,7 @@ img { max-width: 100%; height: auto; }
 .chip--status-prepare { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
 .chip--status-in_progress { background: #fef9c3; border-color: #fde68a; color: #b45309; }
 .chip--status-done { background: #dcfce7; border-color: #86efac; color: #065f46; }
+.chip--status-skipped { background: #f1f5f9; border-color: #e2e8f0; color: #475569; }
 .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
 .dot--low { background: #10b981; }
 .dot--med { background: #f59e0b; }
