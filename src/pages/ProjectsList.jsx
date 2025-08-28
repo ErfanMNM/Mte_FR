@@ -1,11 +1,63 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { addProject, getProjects } from '../projects/store.js'
+import { usersApi } from '../api/client.js'
+
+function ParticipantsPicker({ value = [], onChange, catalog = [] }) {
+  const [q, setQ] = useState('')
+  const selected = useMemo(() => new Set(value), [value])
+  const filtered = useMemo(() => {
+    const query = q.trim().toLowerCase()
+    const pool = catalog.filter(u => !selected.has(u.id))
+    if (!query) return pool.slice(0, 10)
+    const hay = (u) => [u.username, u.email, u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ').toLowerCase()
+    return pool.filter(u => hay(u).includes(query)).slice(0, 10)
+  }, [q, catalog, selected])
+  const add = (id) => { if (!selected.has(id)) onChange?.([...value, id]) }
+  const remove = (id) => { onChange?.(value.filter(v => v !== id)) }
+  const displayName = (u) => {
+    const full = [u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ').trim()
+    return full || u.username || u.email || `User ${u.id}`
+  }
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {value.map(id => {
+          const u = catalog.find(x => x.id === id)
+          if (!u) return null
+          return (
+            <span key={id} className="badge" title={u.email} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              👤 {displayName(u)}
+              <button className="btn btn--ghost" onClick={() => remove(id)} style={{ padding: '2px 6px' }}>×</button>
+            </span>
+          )
+        })}
+      </div>
+      <input className="input" placeholder="Tìm và thêm người dùng..." value={q} onChange={e => setQ(e.target.value)} />
+      {filtered.length > 0 && (
+        <div className="table-wrap" style={{ maxHeight: 180, overflow: 'auto' }}>
+          <table className="table">
+            <tbody>
+              {filtered.map(u => (
+                <tr key={u.id} style={{ cursor: 'pointer' }} onClick={() => add(u.id)}>
+                  <td data-label="Người dùng">{displayName(u)}</td>
+                  <td data-label="Email" className="muted">{u.email}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function ProjectsList() {
   const [projects, setProjects] = useState(getProjects())
   const [q, setQ] = useState('')
-  const [form, setForm] = useState({ name: '', description: '', participants: '' })
+  const [form, setForm] = useState({ name: '', description: '', participants: [] })
+  const [userCatalog, setUserCatalog] = useState([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
   const [view, setView] = useState(() => {
     try { return localStorage.getItem('projects-view') || 'list' } catch { return 'list' }
   })
@@ -22,6 +74,22 @@ export default function ProjectsList() {
   useEffect(() => {
     try { localStorage.setItem('projects-sort', sort) } catch {}
   }, [sort])
+
+  useEffect(() => {
+    let mounted = true
+    async function loadUsers() {
+      setLoadingUsers(true)
+      try {
+        const res = await usersApi.list({ page: 1, limit: 100 })
+        const list = res?.users || res?.data?.users || res?.data || []
+        if (mounted) setUserCatalog(Array.isArray(list) ? list : [])
+      } catch {
+        if (mounted) setUserCatalog([])
+      } finally { if (mounted) setLoadingUsers(false) }
+    }
+    loadUsers()
+    return () => { mounted = false }
+  }, [])
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase()
@@ -44,8 +112,8 @@ export default function ProjectsList() {
 
   const create = (e) => {
     e.preventDefault()
-    const parts = form.participants.split(',').map(s => s.trim()).filter(Boolean)
-    const proj = addProject({ name: form.name, description: form.description, participants: parts })
+    const participantIds = Array.from(new Set(form.participants))
+    const proj = addProject({ name: form.name, description: form.description, participants: participantIds })
     setProjects(getProjects())
     setForm({ name: '', description: '', participants: '' })
     setShowAdd(false)
@@ -97,25 +165,31 @@ export default function ProjectsList() {
                     <th>📁 Tên</th>
                     <th>📝 Mô tả</th>
                     <th>👥 Thành viên</th>
+                    <th>⏱ Quy trình</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {sorted.length === 0 ? (
-                    <tr><td colSpan={4} style={{ padding: 12, color: 'var(--muted)' }}>Chưa có dự án</td></tr>
+                    <tr><td colSpan={5} style={{ padding: 12, color: 'var(--muted)' }}>Chưa có dự án</td></tr>
                   ) : sorted.map(p => (
                     <tr key={p.id} onDoubleClick={() => navigate(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}>
-                      <td><Link to={`/projects/${p.id}`}>📁 {p.name}</Link></td>
-                      <td style={{ color: 'var(--muted)' }}>{p.description || '-'}</td>
-                      <td>
+                      <td data-label="📁 Tên"><Link to={`/projects/${p.id}`}>📁 {p.name}</Link></td>
+                      <td data-label="📝 Mô tả" style={{ color: 'var(--muted)' }}>{p.description || '-'}</td>
+                      <td data-label="👥 Thành viên">
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          {p.participants?.slice(0,5).map((m, i) => (
-                            <span key={i} className="badge">👤 {m}</span>
-                          ))}
+                          {Array.isArray(p.participants) && p.participants.slice(0,5).map((pid, i) => {
+                            const u = userCatalog.find(x => String(x.id) === String(pid))
+                            const label = u ? (([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email)) : String(pid)
+                            return <span key={i} className="badge">👤 {label}</span>
+                          })}
                           {p.participants?.length > 5 ? <span className="badge">+{p.participants.length - 5}</span> : null}
                         </div>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td data-label="⏱ Quy trình">
+                        <span className="badge">{['Thông tin','Khảo sát','Thiết kế','Demo','Thi công','Nghiệm thu','Hỗ trợ'][Math.min(Math.max(0, p.stageIndex ?? 0), 6)] || '—'}</span>
+                      </td>
+                      <td data-label="Hành động" style={{ textAlign: 'right' }}>
                         <Link className="btn btn--ghost" to={`/projects/${p.id}`}>🔎 Mở</Link>
                         <Link className="btn btn--ghost" style={{ marginLeft: 6 }} to={`/projects/${p.id}#settings`}>⚙️ Cài đặt</Link>
                       </td>
@@ -148,9 +222,11 @@ export default function ProjectsList() {
                     <div className="card__body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div className="card__desc" style={{ minHeight: 36 }}>📝 {p.description || '—'}</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', minHeight: 24 }}>
-                        {p.participants?.slice(0,5).map((m, i) => (
-                          <span key={i} className="badge">👥 {m}</span>
-                        ))}
+                        {Array.isArray(p.participants) && p.participants.slice(0,5).map((pid, i) => {
+                          const u = userCatalog.find(x => String(x.id) === String(pid))
+                          const label = u ? (([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email)) : String(pid)
+                          return <span key={i} className="badge">👥 {label}</span>
+                        })}
                         {p.participants?.length > 5 ? <span className="badge">+{p.participants.length - 5}</span> : null}
                       </div>
                     </div>
@@ -167,7 +243,11 @@ export default function ProjectsList() {
           <form className="form" onSubmit={create}>
             <input className="input" placeholder="Tên dự án" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
             <input className="input" placeholder="Mô tả (tuỳ chọn)" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-            <input className="input" placeholder="Người tham gia (ngăn cách bằng dấu phẩy)" value={form.participants} onChange={e => setForm(f => ({ ...f, participants: e.target.value }))} />
+            <div className="form__field">
+              <div className="form__label">Người tham gia (từ backend)</div>
+              <ParticipantsPicker value={form.participants} onChange={(v) => setForm(f => ({ ...f, participants: v }))} catalog={userCatalog} />
+              {loadingUsers ? <div className="card__desc">Đang tải người dùng...</div> : null}
+            </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button type="button" className="btn btn--ghost" onClick={() => setShowAdd(false)}>Hủy</button>
               <button className="btn" type="submit">Tạo</button>

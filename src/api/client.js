@@ -39,3 +39,11 @@ export const profileApi = {
     return apiFetch(`/profiles/me/logs?${params.toString()}`, { method: 'GET' })
   },
 }
+
+export const usersApi = {
+  list: ({ page = 1, limit = 50 } = {}) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    return apiFetch(`/users?${params.toString()}`, { method: 'GET' })
+  },
+  get: (id) => apiFetch(`/users/${id}`, { method: 'GET' }),
+}

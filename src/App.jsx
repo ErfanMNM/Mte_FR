@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import UsersPage from './pages/UsersPage.jsx'
 import ProjectsList from './pages/ProjectsList.jsx'
 import ProjectDetail from './pages/ProjectDetail.jsx'
+import TaskDetailPage from './pages/TaskDetailPage.jsx'
 
 function Layout({ children }) {
   const navigate = useNavigate()
@@ -122,6 +123,7 @@ export default function App() {
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/projects" element={<ProjectsList />} />
                     <Route path="/projects/:id" element={<ProjectDetail />} />
+                    <Route path="/projects/:id/tasks/:taskId" element={<TaskDetailPage />} />
                     <Route path="/tasks" element={<Placeholder title="Tasks" />} />
                     <Route path="/users" element={<UsersPage />} />
                     <Route path="/settings" element={<Placeholder title="Settings" />} />

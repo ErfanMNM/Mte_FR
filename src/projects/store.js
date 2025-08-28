@@ -18,7 +18,15 @@ export function getProjects() { return load() }
 
 export function addProject({ name, description = '', participants = [], cover = '' }) {
   const list = load()
-  const project = { id: crypto.randomUUID(), name: name?.trim() || 'Untitled', description: description?.trim() || '', participants, cover }
+  const project = {
+    id: crypto.randomUUID(),
+    name: name?.trim() || 'Untitled',
+    description: description?.trim() || '',
+    participants,
+    cover,
+    stageIndex: 0,
+    stageMeta: {}
+  }
   list.push(project)
   save(list)
   return project
