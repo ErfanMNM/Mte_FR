@@ -175,6 +175,7 @@ export default function ProjectDetail() {
             <div className="card__body">
               <div className="card__title">Thành viên</div>
               <div style={{ display: 'grid', gap: 8, marginBottom: 8 }}>
+                <div className="form__label">Thêm thành viên vào dự án</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <select className="input" value={form.participantInput} onChange={e => setForm(f => ({ ...f, participantInput: e.target.value }))}>
                     <option value="">-- Chọn người dùng --</option>

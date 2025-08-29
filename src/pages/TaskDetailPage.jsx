@@ -48,6 +48,7 @@ export default function TaskDetailPage() {
   const { task, column } = useMemo(() => findTask(board, taskId), [board, taskId])
   const [tab, setTab] = useState('activity') // activity | files | relations
   const [editing, setEditing] = useState(false)
+  const [membersEditing, setMembersEditing] = useState(false)
   const [form, setForm] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -142,15 +143,10 @@ export default function TaskDetailPage() {
     const { colIndex, taskIndex } = findTask(list, taskId)
     if (colIndex === -1) return
     const tags = form.tags.split(',').map(s => s.trim()).filter(Boolean)
-    const chosenUser = userCatalog.find(u => String(u.id) === String(form.assigneeId || ''))
-    const assigneeDisplay = chosenUser ? ([chosenUser.profile?.first_name, chosenUser.profile?.last_name].filter(Boolean).join(' ') || chosenUser.username || chosenUser.email) : (form.assignee.trim())
     list[colIndex].tasks[taskIndex] = {
       ...list[colIndex].tasks[taskIndex],
       title: form.title.trim() || 'Không tên',
       description: form.description,
-      assignee: assigneeDisplay || '',
-      assigneeId: form.assigneeId || undefined,
-      members: Array.isArray(form.members) ? form.members : [],
       startAt: form.startAt,
       endAt: form.endAt,
       priority: form.priority,
@@ -194,6 +190,24 @@ export default function TaskDetailPage() {
 
   const removeComment = (id) => {
     setComments(cs => cs.filter(c => c.id !== id))
+  }
+
+  function saveMembers() {
+    const list = loadBoard(boardKey)
+    const { colIndex, taskIndex } = findTask(list, taskId)
+    if (colIndex === -1) return
+    const chosenUser = userCatalog.find(u => String(u.id) === String(form.assigneeId || ''))
+    const assigneeDisplay = chosenUser ? ([chosenUser.profile?.first_name, chosenUser.profile?.last_name].filter(Boolean).join(' ') || chosenUser.username || chosenUser.email) : (form.assignee.trim())
+    list[colIndex].tasks[taskIndex] = {
+      ...list[colIndex].tasks[taskIndex],
+      assignee: assigneeDisplay || '',
+      assigneeId: form.assigneeId || undefined,
+      members: Array.isArray(form.members) ? form.members : []
+    }
+    saveBoard(boardKey, list)
+    setBoard(list)
+    setMembersEditing(false)
+    logActivity({ type: 'update' })
   }
 
   return (
@@ -244,19 +258,6 @@ export default function TaskDetailPage() {
                       <option value="medium">Trung bình</option>
                       <option value="high">Cao</option>
                     </select>
-                  </div>
-                  <div>
-                    <div className="form__label">Người phụ trách</div>
-                    {userCatalog.length > 0 ? (
-                      <select className="input" value={String(form.assigneeId || '')} onChange={e => setForm(f => ({ ...f, assigneeId: e.target.value || '' }))}>
-                        <option value="">— Chưa gán —</option>
-                        {userCatalog.map(u => (
-                          <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input className="input" value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))} placeholder="Tên/Email" />
-                    )}
                   </div>
                   <div>
                     <div className="form__label">Tags</div>
@@ -334,94 +335,18 @@ export default function TaskDetailPage() {
           </div>
         </div>
 
-        {/* Card: Thành viên */}
-        <div className="card">
-          <div className="card__body" style={{ display: 'grid', gap: 10 }}>
-            <div className="card__title">Thành viên</div>
-            {editing ? (
-              <div style={{ display: 'grid', gap: 8 }}>
-                <div>
-                  <div className="form__label">Người phụ trách</div>
-                  <div className="chip">
-                    {(() => {
-                      const u = userCatalog.find(x => String(x.id) === String(form.assigneeId || ''))
-                      const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : (form.assignee || 'Chưa gán')
-                      return name || 'Chưa gán'
-                    })()}
-                  </div>
-                </div>
-                <div>
-                  <div className="form__label">Thành viên khác</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {(form.members || []).map((m, i) => (
-                      <span key={i} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {(() => {
-                          const u = userCatalog.find(x => String(x.id) === String(m.userId))
-                          const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId)
-                          return `${name} — ${m.role}`
-                        })()}
-                        <button className="btn btn--ghost" onClick={() => setForm(f => ({ ...f, members: (f.members || []).filter((_, idx) => idx !== i) }))} style={{ padding: '0 6px' }}>×</button>
-                      </span>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                    <select className="input input--sm" value={newMemberId} onChange={e => setNewMemberId(e.target.value)}>
-                      <option value="">+ Chọn thành viên</option>
-                      {userCatalog.map(u => (
-                        <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
-                      ))}
-                    </select>
-                    <select className="input input--sm" value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)}>
-                      {MEMBER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                    <button className="btn" onClick={() => {
-                      if (!newMemberId) return
-                      setForm(f => ({ ...f, members: [...(f.members || []), { userId: Number(newMemberId), role: newMemberRole }] }))
-                      setNewMemberId('')
-                    }}>+ Thêm</button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gap: 8 }}>
-                <div>
-                  <div className="form__label">Người phụ trách</div>
-                  <div className="chip">
-                    {(() => {
-                      const u = userCatalog.find(x => String(x.id) === String(task.assigneeId || ''))
-                      const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : (task.assignee || 'Chưa gán')
-                      return name || 'Chưa gán'
-                    })()}
-                  </div>
-                </div>
-                <div>
-                  <div className="form__label">Thành viên khác</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {Array.isArray(task.members) && task.members.length > 0 ? task.members.map((m,i) => (
-                      <span key={i} className="chip">
-                        {(() => {
-                          const u = userCatalog.find(x => String(x.id) === String(m.userId))
-                          const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId)
-                          return `${name} — ${m.role}`
-                        })()}
-                      </span>
-                    )) : <span className="chip">-</span>}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Members moved into sidebar tabs below */}
 
         {/* Sidebar right remains */}
 
-        <div className="card">
+        <div className="card" style={{ position: 'sticky', top: 8, alignSelf: 'start' }}>
           <div className="card__body" style={{ display: 'grid', gap: 10 }}>
             <div className="card__title">Bảng phụ</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <button className={`btn ${tab === 'activity' ? '' : 'btn--ghost'}`} onClick={() => setTab('activity')}>Activity</button>
-              <button className={`btn ${tab === 'files' ? '' : 'btn--ghost'}`} onClick={() => setTab('files')}>Files</button>
-              <button className={`btn ${tab === 'relations' ? '' : 'btn--ghost'}`} onClick={() => setTab('relations')}>Relations</button>
+              <button className={`btn ${tab === 'activity' ? '' : 'btn--ghost'}`} onClick={() => setTab('activity')}>Hoạt động</button>
+              <button className={`btn ${tab === 'files' ? '' : 'btn--ghost'}`} onClick={() => setTab('files')}>Tệp</button>
+              <button className={`btn ${tab === 'relations' ? '' : 'btn--ghost'}`} onClick={() => setTab('relations')}>Liên kết</button>
+              <button className={`btn ${tab === 'members' ? '' : 'btn--ghost'}`} onClick={() => setTab('members')}>Thành viên</button>
             </div>
 
             {tab === 'activity' && (
@@ -505,6 +430,100 @@ export default function TaskDetailPage() {
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+            )}
+
+            {tab === 'members' && (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="card__title" style={{ margin: 0 }}>Quản lý thành viên</div>
+                  {!membersEditing ? (
+                    <button className="btn btn--ghost" onClick={() => setMembersEditing(true)}>Chỉnh sửa</button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn--ghost" onClick={() => { setForm(f => ({ ...f, assigneeId: task.assigneeId || '', assignee: task.assignee || '', members: Array.isArray(task.members) ? task.members : [] })); setMembersEditing(false) }}>Hủy</button>
+                      <button className="btn" onClick={saveMembers}>Lưu</button>
+                    </div>
+                  )}
+                </div>
+                {(editing || membersEditing) ? (
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div>
+                      <div className="form__label">Người phụ trách</div>
+                      <div>
+                        {userCatalog.length > 0 ? (
+                          <select className="input" value={String(form.assigneeId || '')} onChange={e => setForm(f => ({ ...f, assigneeId: e.target.value || '' }))}>
+                            <option value="">— Chưa gán —</option>
+                            {userCatalog.map(u => (
+                              <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input className="input" value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))} placeholder="Tên/Email" />
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="form__label">Thành viên khác</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {(form.members || []).map((m, i) => (
+                          <span key={i} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            {(() => {
+                              const u = userCatalog.find(x => String(x.id) === String(m.userId))
+                              const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId)
+                              return `${name} — ${m.role}`
+                            })()}
+                            <button className="btn btn--ghost" onClick={() => setForm(f => ({ ...f, members: (f.members || []).filter((_, idx) => idx !== i) }))} style={{ padding: '0 6px' }}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                        <select className="input input--sm" value={newMemberId} onChange={e => setNewMemberId(e.target.value)}>
+                          <option value="">+ Chọn thành viên</option>
+                          {userCatalog.map(u => (
+                            <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
+                          ))}
+                        </select>
+                        <select className="input input--sm" value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)}>
+                          {MEMBER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <button className="btn" onClick={() => {
+                          if (!newMemberId) return
+                          setForm(f => ({ ...f, members: [...(f.members || []), { userId: Number(newMemberId), role: newMemberRole }] }))
+                          setNewMemberId('')
+                        }}>+ Thêm</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div>
+                      <div className="form__label">Người phụ trách</div>
+                      <div className="chip">
+                        {(() => {
+                          const u = userCatalog.find(x => String(x.id) === String(task.assigneeId || ''))
+                          const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : (task.assignee || 'Chưa gán')
+                          return name || 'Chưa gán'
+                        })()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="form__label">Thành viên khác</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {Array.isArray(task.members) && task.members.length > 0 ? task.members.map((m,i) => (
+                          <span key={i} className="chip">
+                            {(() => {
+                              const u = userCatalog.find(x => String(x.id) === String(m.userId))
+                              const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId)
+                              return `${name} — ${m.role}`
+                            })()}
+                          </span>
+                        )) : <span className="chip">-</span>}
+                      </div>
+                    </div>
+                  </div>
+
                 )}
               </div>
             )}

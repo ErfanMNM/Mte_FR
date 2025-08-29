@@ -494,6 +494,11 @@ function TaskDetailsModal({ task, index, onClose, onSave, onDelete, users = [] }
   const [title, setTitle] = useState(task.title)
   const [desc, setDesc] = useState(task.description || '')
   const [assignee, setAssignee] = useState(task.assignee || '')
+  const [ownerId, setOwnerId] = useState(task.assigneeId || '')
+  const [members, setMembers] = useState(Array.isArray(task.members) ? task.members : [])
+  const [newMemberId, setNewMemberId] = useState('')
+  const [newMemberRole, setNewMemberRole] = useState('Liên quan')
+  const ROLES = ['Liên quan','Theo dõi','Giám sát','Kiểm tra']
   const [startAt, setStartAt] = useState(task.startAt || '')
   const [endAt, setEndAt] = useState(task.endAt || task.dueDate || '')
   const [priority, setPriority] = useState(task.priority || 'medium')
@@ -501,12 +506,33 @@ function TaskDetailsModal({ task, index, onClose, onSave, onDelete, users = [] }
   const [type, setType] = useState(task.type || 'task')
   const status = task.status || 'plan'
 
+  useEffect(() => {
+    setTitle(task.title)
+    setDesc(task.description || '')
+    setAssignee(task.assignee || '')
+    setOwnerId(task.assigneeId || '')
+    setMembers(Array.isArray(task.members) ? task.members : [])
+    setStartAt(task.startAt || '')
+    setEndAt(task.endAt || task.dueDate || '')
+    setPriority(task.priority || 'medium')
+    setTags(Array.isArray(task.tags) ? task.tags.join(', ') : (task.tags || ''))
+    setType(task.type || 'task')
+  }, [task.id])
+
+  const userLabel = (id) => {
+    const u = users.find(x => String(x.id) === String(id))
+    if (!u) return ''
+    const full = [u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ').trim()
+    return full || u.username || u.email || String(id)
+  }
+
   const save = () => {
     const tagList = tags.split(',').map(s => s.trim()).filter(Boolean)
+    const displayAssignee = ownerId ? userLabel(ownerId) : (assignee.trim() || '')
     onSave({
       title: title.trim() || 'Không tên',
       description: desc,
-      assignee: assignee.trim() || '',
+      assignee: displayAssignee,
       assigneeId: ownerId || undefined,
       members,
       startAt,
@@ -526,8 +552,8 @@ function TaskDetailsModal({ task, index, onClose, onSave, onDelete, users = [] }
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: 720,
-        maxWidth: '90vw',
+        width: 900,
+        maxWidth: '95vw',
         maxHeight: '90vh',
         background: '#fff',
         border: '1px solid var(--border)',
@@ -536,7 +562,7 @@ function TaskDetailsModal({ task, index, onClose, onSave, onDelete, users = [] }
         padding: 16,
         overflow: 'auto'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <div className="chip chip--sm" title="STT">#{(index ?? 0) + 1}</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <span className={`chip chip--sm chip--status-${status}`} title="Trạng thái">
@@ -549,134 +575,158 @@ function TaskDetailsModal({ task, index, onClose, onSave, onDelete, users = [] }
           </div>
         </div>
 
-        {mode === 'view' ? (
-          <div style={{ display: 'grid', gap: 12 }}>
-            <h3 style={{ margin: 0 }}>{task.title}</h3>
-            {task.description ? (
-              <div>
-                <div className="form__label">Mô tả</div>
-                <div className="task__desc">{task.description}</div>
-              </div>
-            ) : null}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <div className="form__label">Loại</div>
-                <div className="chip">{task.type === 'task' ? 'Nhiệm vụ' : task.type === 'info' ? 'Thông tin' : 'Yêu cầu'}</div>
-              </div>
-              <div>
-                <div className="form__label">Mức độ ưu tiên</div>
-                <div className="chip">
-                  <span className={`dot ${task.priority === 'high' ? 'dot--high' : task.priority === 'low' ? 'dot--low' : 'dot--med'}`}></span>
-                  {task.priority || 'medium'}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
+          {/* Main content */}
+          <div>
+            {mode === 'view' ? (
+              <div style={{ display: 'grid', gap: 12 }}>
+                <h3 style={{ margin: 0 }}>{task.title}</h3>
+                {task.description ? (
+                  <div>
+                    <div className="form__label">Mô tả</div>
+                    <div className="task__desc">{task.description}</div>
+                  </div>
+                ) : null}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <div className="form__label">Loại</div>
+                    <div className="chip">{task.type === 'task' ? 'Nhiệm vụ' : task.type === 'info' ? 'Thông tin' : 'Yêu cầu'}</div>
+                  </div>
+                  <div>
+                    <div className="form__label">Mức độ ưu tiên</div>
+                    <div className="chip">
+                      <span className={`dot ${task.priority === 'high' ? 'dot--high' : task.priority === 'low' ? 'dot--low' : 'dot--med'}`}></span>
+                      {task.priority || 'medium'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="form__label">Tags</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {Array.isArray(task.tags) && task.tags.length > 0 ? task.tags.map((t,i) => <span key={i} className="chip">#{t}</span>) : <span className="chip">—</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="form__label">Bắt đầu</div>
+                    <div className="chip">{task.startAt ? String(task.startAt).replace('T',' ') : '—'}</div>
+                  </div>
+                  <div>
+                    <div className="form__label">Kết thúc</div>
+                    <div className="chip">{task.endAt ? String(task.endAt).replace('T',' ') : (task.dueDate ? String(task.dueDate).replace('T',' ') : '—')}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button className="btn btn--danger" onClick={onDelete}>Xóa</button>
+                  <button className="btn" onClick={() => setMode('edit')}>Chỉnh sửa</button>
                 </div>
               </div>
-              <div>
-                <div className="form__label">Người phụ trách</div>
-                <div className="chip">{task.assignee || '—'}</div>
-              </div>
-              <div>
-                <div className="form__label">Tags</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {Array.isArray(task.tags) && task.tags.length > 0 ? task.tags.map((t,i) => <span key={i} className="chip">#{t}</span>) : <span className="chip">—</span>}
+            ) : (
+              <div className="form" style={{ gap: 10 }}>
+                <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Tên task" />
+                <textarea className="textarea" rows={6} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Nội dung chi tiết" />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <div className="form__label">Loại</div>
+                    <select className="input input--sm" value={type} onChange={e => setType(e.target.value)}>
+                      <option value="task">Nhiệm vụ</option>
+                      <option value="info">Thông tin</option>
+                      <option value="request">Yêu cầu</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="form__label">Mức độ ưu tiên</div>
+                    <select className="input input--sm" value={priority} onChange={e => setPriority(e.target.value)}>
+                      <option value="low">Thấp</option>
+                      <option value="medium">Trung bình</option>
+                      <option value="high">Cao</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="form__label">Tags</div>
+                    <input className="input" placeholder="tag1, tag2" value={tags} onChange={e => setTags(e.target.value)} />
+                  </div>
+                  <div>
+                    <div className="form__label">Bắt đầu</div>
+                    <input className="input" type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} />
+                  </div>
+                  <div>
+                    <div className="form__label">Kết thúc</div>
+                    <input className="input" type="datetime-local" value={endAt} onChange={e => setEndAt(e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button className="btn btn--ghost" onClick={() => setMode('view')}>Hủy</button>
+                  <button className="btn" onClick={save}>Lưu</button>
                 </div>
               </div>
-              <div>
-                <div className="form__label">Bắt đầu</div>
-                <div className="chip">{task.startAt ? String(task.startAt).replace('T',' ') : '—'}</div>
-              </div>
-              <div>
-                <div className="form__label">Kết thúc</div>
-                <div className="chip">{task.endAt ? String(task.endAt).replace('T',' ') : (task.dueDate ? String(task.dueDate).replace('T',' ') : '—')}</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn btn--danger" onClick={onDelete}>Xóa</button>
-              <button className="btn" onClick={() => setMode('edit')}>Chỉnh sửa</button>
-            </div>
+            )}
           </div>
-        ) : (
-          <div className="form" style={{ gap: 10 }}>
-            <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Tên task" />
-            <textarea className="textarea" rows={6} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Nội dung chi tiết" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <div className="form__label">Loại</div>
-                <select className="input input--sm" value={type} onChange={e => setType(e.target.value)}>
-                  <option value="task">Nhiệm vụ</option>
-                  <option value="info">Thông tin</option>
-                  <option value="request">Yêu cầu</option>
-                </select>
-              </div>
-              <div>
-                <div className="form__label">Mức độ ưu tiên</div>
-                <select className="input input--sm" value={priority} onChange={e => setPriority(e.target.value)}>
-                  <option value="low">Thấp</option>
-                  <option value="medium">Trung bình</option>
-                  <option value="high">Cao</option>
-                </select>
-              </div>
-              <div>
-                <div className="form__label">Người phụ trách</div>
-                <input className="input" placeholder="Tên/Email" value={assignee} onChange={e => setAssignee(e.target.value)} />
-              </div>
-              <div>
-                <div className="form__label">Tags</div>
-                <input className="input" placeholder="tag1, tag2" value={tags} onChange={e => setTags(e.target.value)} />
-              </div>
-              {/* Thành viên */}
-              <div>
-                <div className="form__label">Người phụ trách (bắt buộc)</div>
-                {Array.isArray(users) && users.length > 0 ? (
-                  <select className="input" value={String(ownerId || '')} onChange={e => setOwnerId(e.target.value || '')}>
-                    <option value="">-- Chọn --</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
-                    ))}
-                  </select>
+
+          {/* Right sidebar (fixed) */}
+          <aside style={{ position: 'sticky', top: 8, alignSelf: 'start' }}>
+            <div className="card">
+              <div className="card__body" style={{ display: 'grid', gap: 10 }}>
+            <div className="card__title">Thành viên</div>
+                {mode === 'view' ? (
+                  <>
+                    <div>
+                      <div className="form__label">Người phụ trách</div>
+                      <div className="chip">{task.assignee || (ownerId ? userLabel(ownerId) : '—')}</div>
+                    </div>
+                    <div>
+                      <div className="form__label">Thành viên khác</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {Array.isArray(task.members) && task.members.length > 0 ? task.members.map((m,i) => (
+                          <span key={i} className="chip">👥 {(() => { const u = users.find(x => String(x.id) === String(m.userId)); return u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId) })()} — {m.role}</span>
+                        )) : <span className="chip">—</span>}
+                      </div>
+                    </div>
+                  </>
                 ) : (
-                  <input className="input" placeholder="Tên/Email" value={assignee} onChange={e => setAssignee(e.target.value)} />
+                  <>
+                    <div>
+                      <div className="form__label">Người phụ trách (bắt buộc)</div>
+                      {Array.isArray(users) && users.length > 0 ? (
+                        <select className="input" value={String(ownerId || '')} onChange={e => setOwnerId(e.target.value || '')}>
+                          <option value="">-- Chọn --</option>
+                          {users.map(u => (
+                            <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input className="input" placeholder="Tên/Email" value={assignee} onChange={e => setAssignee(e.target.value)} />
+                      )}
+                    </div>
+                    <div>
+                      <div className="form__label">Thành viên khác</div>
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {(members || []).map((m, i) => (
+                            <span key={i} className="chip">
+                              👥 {(() => { const u = users.find(x => String(x.id) === String(m.userId)); return u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId) })()} — {m.role}
+                              <button className="btn btn--ghost" onClick={() => setMembers(ms => ms.filter((_, idx) => idx !== i))} style={{ padding: '0 6px', marginLeft: 6 }}>×</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <select className="input input--sm" value={newMemberId} onChange={e => setNewMemberId(e.target.value)} style={{ minWidth: 200 }}>
+                            <option value="">+ Chọn thành viên</option>
+                            {users.map(u => (
+                              <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
+                            ))}
+                          </select>
+                          <select className="input input--sm" value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)}>
+                            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                          <button className="btn" onClick={() => { if (!newMemberId) return; if ((members||[]).some(m => String(m.userId)===String(newMemberId))) return; setMembers(ms => [...ms, { userId: Number(newMemberId), role: newMemberRole }]); setNewMemberId('') }}>+ Thêm</button>
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
-              <div>
-                <div className="form__label">Thành viên khác</div>
-                <div style={{ display: 'grid', gap: 6 }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {(members || []).map((m, i) => (
-                      <span key={i} className="chip">
-                        👥 {(() => { const u = users.find(x => String(x.id) === String(m.userId)); return u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId) })()} — {m.role}
-                        <button className="btn btn--ghost" onClick={() => setMembers(ms => ms.filter((_, idx) => idx !== i))} style={{ padding: '0 6px', marginLeft: 6 }}>×</button>
-                      </span>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <select className="input input--sm" value={newMemberId} onChange={e => setNewMemberId(e.target.value)} style={{ minWidth: 200 }}>
-                      <option value="">+ Chọn thành viên</option>
-                      {users.map(u => (
-                        <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
-                      ))}
-                    </select>
-                    <select className="input input--sm" value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)}>
-                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                    <button className="btn" onClick={() => { if (!newMemberId) return; if ((members||[]).some(m => String(m.userId)===String(newMemberId))) return; setMembers(ms => [...ms, { userId: Number(newMemberId), role: newMemberRole }]); setNewMemberId('') }}>+ Thêm</button>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div className="form__label">Bắt đầu</div>
-                <input className="input" type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} />
-              </div>
-              <div>
-                <div className="form__label">Kết thúc</div>
-                <input className="input" type="datetime-local" value={endAt} onChange={e => setEndAt(e.target.value)} />
-              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn btn--ghost" onClick={() => setMode('view')}>Hủy</button>
-              <button className="btn" onClick={save}>Lưu</button>
-            </div>
-          </div>
-        )}
+          </aside>
+        </div>
       </div>
     </div>
   )
