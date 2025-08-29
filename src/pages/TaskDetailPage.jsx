@@ -150,6 +150,7 @@ export default function TaskDetailPage() {
       description: form.description,
       assignee: assigneeDisplay || '',
       assigneeId: form.assigneeId || undefined,
+      members: Array.isArray(form.members) ? form.members : [],
       startAt: form.startAt,
       endAt: form.endAt,
       priority: form.priority,
@@ -330,6 +331,85 @@ export default function TaskDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Card: Thành viên */}
+        <div className="card">
+          <div className="card__body" style={{ display: 'grid', gap: 10 }}>
+            <div className="card__title">Thành viên</div>
+            {editing ? (
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div>
+                  <div className="form__label">Người phụ trách</div>
+                  <div className="chip">
+                    {(() => {
+                      const u = userCatalog.find(x => String(x.id) === String(form.assigneeId || ''))
+                      const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : (form.assignee || 'Chưa gán')
+                      return name || 'Chưa gán'
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <div className="form__label">Thành viên khác</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {(form.members || []).map((m, i) => (
+                      <span key={i} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {(() => {
+                          const u = userCatalog.find(x => String(x.id) === String(m.userId))
+                          const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId)
+                          return `${name} — ${m.role}`
+                        })()}
+                        <button className="btn btn--ghost" onClick={() => setForm(f => ({ ...f, members: (f.members || []).filter((_, idx) => idx !== i) }))} style={{ padding: '0 6px' }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                    <select className="input input--sm" value={newMemberId} onChange={e => setNewMemberId(e.target.value)}>
+                      <option value="">+ Chọn thành viên</option>
+                      {userCatalog.map(u => (
+                        <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
+                      ))}
+                    </select>
+                    <select className="input input--sm" value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)}>
+                      {MEMBER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <button className="btn" onClick={() => {
+                      if (!newMemberId) return
+                      setForm(f => ({ ...f, members: [...(f.members || []), { userId: Number(newMemberId), role: newMemberRole }] }))
+                      setNewMemberId('')
+                    }}>+ Thêm</button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div>
+                  <div className="form__label">Người phụ trách</div>
+                  <div className="chip">
+                    {(() => {
+                      const u = userCatalog.find(x => String(x.id) === String(task.assigneeId || ''))
+                      const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : (task.assignee || 'Chưa gán')
+                      return name || 'Chưa gán'
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <div className="form__label">Thành viên khác</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {Array.isArray(task.members) && task.members.length > 0 ? task.members.map((m,i) => (
+                      <span key={i} className="chip">
+                        {(() => {
+                          const u = userCatalog.find(x => String(x.id) === String(m.userId))
+                          const name = u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId)
+                          return `${name} — ${m.role}`
+                        })()}
+                      </span>
+                    )) : <span className="chip">-</span>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
