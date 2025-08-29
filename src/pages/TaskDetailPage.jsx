@@ -53,6 +53,7 @@ export default function TaskDetailPage() {
     description: task?.description || '',
     assignee: task?.assignee || '',
     assigneeId: task?.assigneeId || '',
+    members: Array.isArray(task?.members) ? task.members : [],
     startAt: task?.startAt || '',
     endAt: task?.endAt || task?.dueDate || '',
     priority: task?.priority || 'medium',
@@ -68,6 +69,11 @@ export default function TaskDetailPage() {
   const [commentInput, setCommentInput] = useState('')
   const [userCatalog, setUserCatalog] = useState([])
   const [loadingUsers, setLoadingUsers] = useState(false)
+  const [activityPage, setActivityPage] = useState(1)
+  const activityPageSize = 10
+  const [newMemberId, setNewMemberId] = useState('')
+  const [newMemberRole, setNewMemberRole] = useState('Liên quan')
+  const MEMBER_ROLES = ['Liên quan','Theo dõi','Giám sát','Kiểm tra']
 
   useEffect(() => { saveJSON(keyActivity(boardKey, taskId), activity) }, [activity, boardKey, taskId])
   useEffect(() => { saveJSON(keyFiles(boardKey, taskId), files) }, [files, boardKey, taskId])
@@ -114,6 +120,7 @@ export default function TaskDetailPage() {
       description: task.description || '',
       assignee: task.assignee || '',
       assigneeId: task.assigneeId || '',
+      members: Array.isArray(task.members) ? task.members : [],
       startAt: task.startAt || '',
       endAt: task.endAt || task.dueDate || '',
       priority: task.priority || 'medium',
@@ -340,7 +347,7 @@ export default function TaskDetailPage() {
             {tab === 'activity' && (
               <div style={{ display: 'grid', gap: 8 }}>
                 {activity.length === 0 ? <div className="card__desc">Chưa có hoạt động</div> : null}
-                {activity.map(evt => {
+                {activity.slice((activityPage-1)*activityPageSize, (activityPage-1)*activityPageSize + activityPageSize).map(evt => {
                   const t = String(evt.at).replace('T',' ').replace('Z','')
                   const who = evt.actor?.name || 'Người dùng'
                   let desc = ''
@@ -362,6 +369,13 @@ export default function TaskDetailPage() {
                     </div>
                   )
                 })}
+                {activity.length > activityPageSize && (
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <button className="btn btn--ghost" onClick={() => setActivityPage(p => Math.max(1, p - 1))} disabled={activityPage <= 1}>Trước</button>
+                    <span className="badge">Trang {activityPage}/{Math.max(1, Math.ceil(activity.length / activityPageSize))}</span>
+                    <button className="btn btn--ghost" onClick={() => setActivityPage(p => Math.min(Math.max(1, Math.ceil(activity.length / activityPageSize)), p + 1))} disabled={activityPage >= Math.ceil(activity.length / activityPageSize)}>Sau</button>
+                  </div>
+                )}
               </div>
             )}
 

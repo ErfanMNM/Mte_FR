@@ -6,6 +6,7 @@ function displayName(u) {
 }
 
 export default function ProjectFlow({ project, setProject, users = [] }) {
+  const [mode, setMode] = useState('view')
   const [addName, setAddName] = useState('')
   const [expanded, setExpanded] = useState(() => new Set())
   const [selectedPath, setSelectedPath] = useState(() => [0])
@@ -199,13 +200,22 @@ export default function ProjectFlow({ project, setProject, users = [] }) {
     return <span className={cls}>{label}</span>
   }
 
+  const leaves = useMemo(() => flattenLeaves(project.pipeline || []), [project.pipeline])
   const progress = useMemo(() => {
-    const leaves = flattenLeaves(project.pipeline)
     const total = leaves.length
     const skipped = leaves.filter(x => x.node.status === 'skipped').length
     const done = leaves.filter(x => x.node.status === 'done').length
     return { done, total, skipped, pct: Math.round((done / Math.max(1, total - skipped)) * 100) }
-  }, [project.pipeline])
+  }, [leaves])
+
+  const currentLeafIndex = useMemo(() => {
+    const activeIdx = leaves.findIndex(x => x.node.status === 'in_progress')
+    if (activeIdx !== -1) return activeIdx
+    let lastDone = -1
+    for (let i = leaves.length - 1; i >= 0; i--) { if (leaves[i].node.status === 'done') { lastDone = i; break } }
+    if (lastDone !== -1) return lastDone
+    return leaves.length ? 0 : -1
+  }, [leaves])
 
   const derivedStatus = (node) => {
     if (node.status === 'skipped' || node.status === 'done') return node.status
@@ -290,17 +300,41 @@ export default function ProjectFlow({ project, setProject, users = [] }) {
     const nextExpanded = new Set(expanded); nextExpanded.add(key); setExpanded(nextExpanded)
   }
 
+  // Undo: move back to previous stage
+  const undoToPrevious = () => {
+    const leaves = flattenLeaves(project.pipeline)
+    if (!leaves.length) return
+    let activeIdx = leaves.findIndex(x => x.node.status === 'in_progress')
+    if (activeIdx === -1) {
+      // if nothing active, revive last done
+      const lastDone = (() => { for (let i = leaves.length - 1; i >= 0; i--) { if (leaves[i].node.status === 'done') return i; } return -1 })()
+      if (lastDone >= 0) {
+        const next = setAt(project.pipeline, leaves[lastDone].path, (s) => ({ ...s, status: 'in_progress', endAt: undefined }))
+        persist(next)
+      }
+      return
+    }
+    if (activeIdx === 0) return
+    const prevPath = leaves[activeIdx - 1].path
+    const curPath = leaves[activeIdx].path
+    let next = setAt(project.pipeline, curPath, (s) => ({ ...s, status: undefined, startAt: s.startAt }))
+    next = setAt(next, prevPath, (s) => ({ ...s, status: 'in_progress', endAt: undefined }))
+    persist(next)
+    setSelectedPath(prevPath)
+  }
+
   return (
     <div className="card">
       <div className="card__body" style={{ display: 'grid', gap: 12 }}>
-        <div className="card__title">Timeline quy trình</div>
+        <div className="card__title">Ch?nh s?a Flow</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="badge">Tiến độ: {progress.done}/{progress.total - progress.skipped} ({progress.pct}%)</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <button className="btn btn--ghost" onClick={undoToPrevious} title="Quay về giai đoạn trước">↶ Undo</button>
             <input className="input input--sm" placeholder="Tên giai đoạn mới" value={addName} onChange={e => setAddName(e.target.value)} style={{ maxWidth: 240 }} />
             <button className="btn" onClick={() => addStage('after')} disabled={!addName.trim()}>+ Thêm (sau)</button>
             <button className="btn btn--ghost" onClick={() => addStage('before')} disabled={!addName.trim()}>+ Thêm (trước)</button>
-            <button className="btn btn--ghost" onClick={resetDefault}>↺ Reset mặc định</button>
+            <button className="btn btn--ghost" onClick={resetDefault}>↺ Reset m?c d?nh</button>
           </div>
         </div>
 
@@ -314,3 +348,7 @@ export default function ProjectFlow({ project, setProject, users = [] }) {
     </div>
   )
 }
+
+
+
+

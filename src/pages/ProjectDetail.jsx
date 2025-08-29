@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import KanbanBoard from '../kanban/KanbanBoard.jsx'
 import ProjectFlow from '../flow/ProjectFlow.jsx'
+import ProjectTimeline from '../flow/ProjectTimeline.jsx'
 import { getProject, projectBoardKey, updateProject, removeProject } from '../projects/store.js'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { usersApi } from '../api/client.js'
@@ -17,6 +18,7 @@ export default function ProjectDetail() {
   const location = useLocation()
   const [rightPanel, setRightPanel] = useState(null) // 'properties' | 'settings' | null
   const [tab, setTab] = useState('dashboard') // dashboard | kanban | flow
+  const [flowMode, setFlowMode] = useState('view') // view | edit
   const { user } = useAuth()
   const role = user?.role || 'admin' // mock fallback
   const canManage = role === 'admin' || role === 'editor'
@@ -212,13 +214,30 @@ export default function ProjectDetail() {
               storageKey={boardKey}
               onOpenTask={(taskId) => navigate(`/projects/${id}/tasks/${taskId}`)}
               users={userCatalog}
+              stages={(proj.pipeline || []).flatMap((s) => (Array.isArray(s.children) && s.children.length ? s.children : [s])).map(s => ({ id: s.id, name: s.name }))}
             />
           </div>
         </div>
       )}
 
       {tab === 'flow' && (
-        <ProjectFlow project={proj} setProject={setProj} users={userCatalog} />
+        <>
+          {flowMode === 'view' ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                <button className="btn btn--ghost" onClick={() => setFlowMode('edit')}>Chỉnh sửa</button>
+              </div>
+              <ProjectTimeline project={proj} />
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                <button className="btn btn--ghost" onClick={() => setFlowMode('view')}>Xem timeline</button>
+              </div>
+              <ProjectFlow project={proj} setProject={setProj} users={userCatalog} />
+            </>
+          )}
+        </>
       )}
 
       {rightPanel && (

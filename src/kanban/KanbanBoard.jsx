@@ -29,7 +29,7 @@ function useLocalBoard(storageKey) {
   return [board, setBoard]
 }
 
-export default function KanbanBoard({ storageKey = DEFAULT_STORAGE_KEY, onOpenTask, users = [] }) {
+export default function KanbanBoard({ storageKey = DEFAULT_STORAGE_KEY, onOpenTask, users = [], stages = [] }) {
   const [board, setBoard] = useLocalBoard(storageKey)
   const [filter, setFilter] = useState('')
   const [showNewCol, setShowNewCol] = useState(false)
@@ -146,6 +146,7 @@ export default function KanbanBoard({ storageKey = DEFAULT_STORAGE_KEY, onOpenTa
             onDeleteTask={deleteTask}
             onOpenTask={onOpenTask}
             users={users}
+            stages={stages}
             onUpdateColumn={patch => updateColumn(col.id, patch)}
             onDeleteColumn={() => deleteColumn(col.id)}
             onMoveColumn={fromId => moveColumn(fromId, col.id)}
@@ -175,7 +176,7 @@ export default function KanbanBoard({ storageKey = DEFAULT_STORAGE_KEY, onOpenTa
   </>)
 }
 
-function Column({ column, onAdd, onDropTask, onUpdateTask, onDeleteTask, onUpdateColumn, onDeleteColumn, onMoveColumn, onOpenTask, users }) {
+function Column({ column, onAdd, onDropTask, onUpdateTask, onDeleteTask, onUpdateColumn, onDeleteColumn, onMoveColumn, onOpenTask, users, stages = [] }) {
   const [newTitle, setNewTitle] = useState('')
   const [newType, setNewType] = useState('task')
   const [newStatus, setNewStatus] = useState('plan')
@@ -284,6 +285,14 @@ function Column({ column, onAdd, onDropTask, onUpdateTask, onDeleteTask, onUpdat
                   </select>
                 </div>
               </div>
+              <div>
+                <div className="form__label">Thành viên khác</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {Array.isArray(task.members) && task.members.length > 0 ? task.members.map((m,i) => (
+                    <span key={i} className="chip">👥 {(() => { const u = (users||[]).find(x => String(x.id) === String(m.userId)); return u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId) })()} — {m.role}</span>
+                  )) : <span className="chip">-</span>}
+                </div>
+              </div>
               <input className="input" placeholder="Tiêu đề..." value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAdd() }} />
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button className="btn btn--ghost" onClick={() => setShowAdd(false)}>Hủy</button>
@@ -296,7 +305,7 @@ function Column({ column, onAdd, onDropTask, onUpdateTask, onDeleteTask, onUpdat
 
       <div className="column__list">
         {column.tasks.map((task, idx) => (
-          <TaskItem key={task.id} task={task} index={idx} columnId={column.id} onUpdate={onUpdateTask} onDelete={onDeleteTask} onOpen={() => onOpenTask && onOpenTask(task.id)} users={users} />
+          <TaskItem key={task.id} task={task} index={idx} columnId={column.id} onUpdate={onUpdateTask} onDelete={onDeleteTask} onOpen={() => onOpenTask && onOpenTask(task.id)} users={users} stages={stages} />
         ))}
       </div>
     </section>
@@ -304,12 +313,18 @@ function Column({ column, onAdd, onDropTask, onUpdateTask, onDeleteTask, onUpdat
 }
 
 // Compact task item UI
-function TaskItem({ task, columnId, onUpdate, onDelete, index, onOpen, users = [] }) {
+function TaskItem({ task, columnId, onUpdate, onDelete, index, onOpen, users = [], stages = [] }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
   const [desc, setDesc] = useState(task.description || '')
   const [assignee, setAssignee] = useState(task.assignee || '')
+  const [ownerId, setOwnerId] = useState(task.assigneeId || '')
+  const [members, setMembers] = useState(Array.isArray(task.members) ? task.members : [])
+  const [newMemberId, setNewMemberId] = useState('')
+  const [newMemberRole, setNewMemberRole] = useState('Liên quan')
+  const ROLES = ['Liên quan','Theo dõi','Giám sát','Kiểm tra']
   const [assigneeId, setAssigneeId] = useState(task.assigneeId || '')
+  const [assigneeIds, setAssigneeIds] = useState(() => Array.isArray(task.assignees) ? task.assignees.map(v => String(v)) : (task.assigneeId ? [String(task.assigneeId)] : []))
   const [startAt, setStartAt] = useState(task.startAt || '')
   const [endAt, setEndAt] = useState(task.endAt || task.dueDate || '')
   const [priority, setPriority] = useState(task.priority || 'medium')
@@ -317,6 +332,7 @@ function TaskItem({ task, columnId, onUpdate, onDelete, index, onOpen, users = [
   const [status, setStatus] = useState(task.status || 'plan')
   const [type, setType] = useState(task.type || 'task')
   const [dragging, setDragging] = useState(false)
+  const [stageId, setStageId] = useState(task.stageId || '')
   const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
@@ -324,12 +340,14 @@ function TaskItem({ task, columnId, onUpdate, onDelete, index, onOpen, users = [
     setDesc(task.description || '')
     setAssignee(task.assignee || '')
     setAssigneeId(task.assigneeId || '')
+    setAssigneeIds(Array.isArray(task.assignees) ? task.assignees.map(v => String(v)) : (task.assigneeId ? [String(task.assigneeId)] : []))
     setStartAt(task.startAt || '')
     setEndAt(task.endAt || task.dueDate || '')
     setPriority(task.priority || 'medium')
     setTags(Array.isArray(task.tags) ? task.tags.join(', ') : (task.tags || ''))
     setStatus(task.status || 'plan')
     setType(task.type || 'task')
+    setStageId(task.stageId || '')
   }, [task.id])
 
   const onDragStart = (e) => {
@@ -354,12 +372,14 @@ function TaskItem({ task, columnId, onUpdate, onDelete, index, onOpen, users = [
       description: desc,
       assignee: displayAssignee,
       assigneeId: assigneeId || undefined,
+      assignees: assigneeIds.map(v => Number(v)),
       startAt,
       endAt,
       priority,
       tags: tagList,
       status,
       type,
+      stageId: stageId || undefined,
       done: status === 'done'
     })
     setEditing(false)
@@ -391,6 +411,12 @@ function TaskItem({ task, columnId, onUpdate, onDelete, index, onOpen, users = [
               <option value="prepare">Tình trạng: Chuẩn bị</option>
               <option value="in_progress">Tình trạng: Đang làm</option>
               <option value="done">Tình trạng: Hoàn thành</option>
+            </select>
+          </div>
+          <div className="task__row">
+            <select className="input input--sm" value={stageId} onChange={e => setStageId(e.target.value)} title="Giai đoạn" style={{ minWidth: 160 }}>
+              <option value="">Giai đoạn: (chưa chọn)</option>
+              {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
           <textarea className="textarea" rows={3} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Nội dung" />
@@ -429,7 +455,7 @@ function TaskItem({ task, columnId, onUpdate, onDelete, index, onOpen, users = [
               {(task.status || 'plan') === 'plan' ? 'Dự kiến' : (task.status || 'plan') === 'prepare' ? 'Chuẩn bị' : (task.status || 'plan') === 'in_progress' ? 'Đang làm' : 'Hoàn thành'}
             </span>
           </div>
-          <div className="task__title" style={titleStyle} title={task.title}>{task.title}</div>
+          <div className="task__title" style={titleStyle} title={task.title}>{task.stageId ? (<button className="btn btn--ghost" title="Xem giai do?n" onClick={() => { try { const url = new URL(window.location.href); url.hash = "#flow"; window.history.replaceState(null, "", url.toString()); } catch {} }} style={{ padding: "2px 6px", marginRight: 6 }}>?</button>) : null}{task.title}</div>
           {task.description ? <div className="task__desc">{task.description}</div> : null}
           <div className="task__meta">
             {task.type ? <span className="chip" title="Loại">🏷 {task.type === 'task' ? 'Nhiệm vụ' : task.type === 'info' ? 'Thông tin' : 'Yêu cầu'}</span> : null}
@@ -454,6 +480,7 @@ function TaskItem({ task, columnId, onUpdate, onDelete, index, onOpen, users = [
       <TaskDetailsModal
         task={task}
         index={index}
+        users={users}
         onClose={() => setShowDetails(false)}
         onSave={(patch) => { onUpdate(task.id, patch); setShowDetails(false) }}
         onDelete={() => { onDelete(task.id); setShowDetails(false) }}
@@ -462,7 +489,7 @@ function TaskItem({ task, columnId, onUpdate, onDelete, index, onOpen, users = [
   </>)
 }
 
-function TaskDetailsModal({ task, index, onClose, onSave, onDelete }) {
+function TaskDetailsModal({ task, index, onClose, onSave, onDelete, users = [] }) {
   const [mode, setMode] = useState('view')
   const [title, setTitle] = useState(task.title)
   const [desc, setDesc] = useState(task.description || '')
@@ -480,6 +507,8 @@ function TaskDetailsModal({ task, index, onClose, onSave, onDelete }) {
       title: title.trim() || 'Không tên',
       description: desc,
       assignee: assignee.trim() || '',
+      assigneeId: ownerId || undefined,
+      members,
       startAt,
       endAt,
       priority,
@@ -594,6 +623,45 @@ function TaskDetailsModal({ task, index, onClose, onSave, onDelete }) {
                 <div className="form__label">Tags</div>
                 <input className="input" placeholder="tag1, tag2" value={tags} onChange={e => setTags(e.target.value)} />
               </div>
+              {/* Thành viên */}
+              <div>
+                <div className="form__label">Người phụ trách (bắt buộc)</div>
+                {Array.isArray(users) && users.length > 0 ? (
+                  <select className="input" value={String(ownerId || '')} onChange={e => setOwnerId(e.target.value || '')}>
+                    <option value="">-- Chọn --</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input className="input" placeholder="Tên/Email" value={assignee} onChange={e => setAssignee(e.target.value)} />
+                )}
+              </div>
+              <div>
+                <div className="form__label">Thành viên khác</div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {(members || []).map((m, i) => (
+                      <span key={i} className="chip">
+                        👥 {(() => { const u = users.find(x => String(x.id) === String(m.userId)); return u ? ([u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email) : String(m.userId) })()} — {m.role}
+                        <button className="btn btn--ghost" onClick={() => setMembers(ms => ms.filter((_, idx) => idx !== i))} style={{ padding: '0 6px', marginLeft: 6 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <select className="input input--sm" value={newMemberId} onChange={e => setNewMemberId(e.target.value)} style={{ minWidth: 200 }}>
+                      <option value="">+ Chọn thành viên</option>
+                      {users.map(u => (
+                        <option key={u.id} value={u.id}>{[u.profile?.first_name, u.profile?.last_name].filter(Boolean).join(' ') || u.username || u.email}</option>
+                      ))}
+                    </select>
+                    <select className="input input--sm" value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)}>
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <button className="btn" onClick={() => { if (!newMemberId) return; if ((members||[]).some(m => String(m.userId)===String(newMemberId))) return; setMembers(ms => [...ms, { userId: Number(newMemberId), role: newMemberRole }]); setNewMemberId('') }}>+ Thêm</button>
+                  </div>
+                </div>
+              </div>
               <div>
                 <div className="form__label">Bắt đầu</div>
                 <input className="input" type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} />
@@ -613,3 +681,14 @@ function TaskDetailsModal({ task, index, onClose, onSave, onDelete }) {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
